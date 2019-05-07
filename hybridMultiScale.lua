@@ -1,6 +1,57 @@
+function countNeighbors(cell, val)
+	if val == nil then
+		return #cell:getNeighborhood()
+	end
+
+	local count = 0
+	forEachNeighbor(cell, function(neigh)
+		if neigh.past.state == val then
+			count = count + 1
+		end
+	end)
+	return count
+end
+
+init = function(model)
+    local firstrun = true
+    local count = 0
+    model.cell = Cell{
+        init = function(cell)
+            cell.state = "oxygen"
+        end,
+
+        execute = function(cell)
+            for i=1 , 8 , 1 do
+                for j=1 , 8, 1  do
+                if cell.x == math.ceil(model.dim / i) and cell.y == math.ceil(model.dim / j) then
+                    cell.state = "vessels"
+                end
+            end
+        end
+    end
+    }
+    model.cs = CellularSpace{
+        xdim = model.dim,
+        instance = model.cell,
+    }
+
+    model.cs:createNeighborhood()
+
+    model.map = Map{
+        target = model.cs,
+        select = "state",
+        value = {"vessels","oxygen"},
+        color = {"red","blue"}
+    }
+
+    model.timer = Timer{
+        Event{action = model.cs},
+        Event{action = model.map}
+    }
+end
 hybridMultiscale = Model {
     finalTime = 100,
-    dim = 100, -- size of grid
+    dim = 50, -- size of grid
     bloddVessels = 49, -- number of blood vessels
     oxygenBacteria = nil, -- Oxygen consumption rate of bacteria
     oxygenMr = nil, -- Oxygen consumption rate of Mr
@@ -36,3 +87,5 @@ hybridMultiscale = Model {
     init = init
 
 }
+
+hybridMultiscale:run()
