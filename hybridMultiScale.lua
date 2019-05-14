@@ -12,23 +12,26 @@ function countNeighbors(cell, val)
 	return count
 end
 
+function populateVessels(cell)
+    local v = countNeighbors(cell, "vessels")
+            if v > 1  then
+                cell.state = "oxygen"   
+            end
+end
+
+
 init = function(model)
     local firstrun = true
     local count = 0
     model.cell = Cell{
         init = function(cell)
-            cell.state = "oxygen"
+            cell.state = Random{"oxygen", "vessels"}:sample()
         end,
 
         execute = function(cell)
-            for i=1 , 8 , 1 do
-                for j=1 , 8, 1  do
-                if cell.x == math.ceil(model.dim / i) and cell.y == math.ceil(model.dim / j) then
-                    cell.state = "vessels"
-                end
-            end
-        end
-    end
+            populateVessels(cell)
+            
+     end
     }
     model.cs = CellularSpace{
         xdim = model.dim,
@@ -52,7 +55,7 @@ end
 hybridMultiscale = Model {
     finalTime = 100,
     dim = 50, -- size of grid
-    bloddVessels = 49, -- number of blood vessels
+    bloodVessels = 49, -- number of blood vessels
     oxygenBacteria = nil, -- Oxygen consumption rate of bacteria
     oxygenMr = nil, -- Oxygen consumption rate of Mr
     oxygenMa = nil, -- Oxygen consumption rate of Ma
