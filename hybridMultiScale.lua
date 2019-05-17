@@ -17,20 +17,66 @@ function populateVessels(cell)
             if v > 1  then
                 cell.state = "oxygen"   
             end
+
+
+  --[[  forEachNeighbor(cell, function(neigh)
+    local v = countNeighbors(cell, neigh.oxygen)
+            if v  >= 1    then
+                cell.oxygen = 100  
+            end
+    end)
+    ]]--
 end
 
+function insertOxygenLevel(cell)
+    forEachNeighbor(cell, function(neighbour)
+            if cell.state == "vessels" and neighbour.state == "oxygen" then
+                neighbour.state = "o2"
+            end
+            if cell.state == "o2" and neighbour.state == "oxygen" then
+                neighbour.state = "o3"
+            end
+            if cell.state == "o3" and neighbour.state == "oxygen" then
+                neighbour.state = "o4"
+            end     
+    end)
+    --[[forEachNeighbor(cell, function(neighbour)
+        if cell.oxygen == 100 and neighbour.state == 0 then
+            neighbour.oxygen = 10
+        elseif cell.state == 10 and neighbour.state == 0 then
+            neighbour.oxygen = 20
+        elseif cell.state == 20 and neighbour.state == 0 then
+            neighbour.state = 30
+        end     
+    end)]]--
+end
+
+function OxygenTransitions(cell)
+    if cell.state == "o2" then 
+        cell.state = "o4"
+    elseif cell.state == "o3" then 
+        cell.state = "o4"
+    elseif cell.state == "o4" then 
+        cell.state = "oxygen"
+    end
+end
 
 init = function(model)
     local firstrun = true
     local count = 0
     model.cell = Cell{
         init = function(cell)
-            cell.state = Random{"oxygen", "vessels"}:sample()
+
+         cell.state = Random{"oxygen", "vessels"}:sample()
+          --cell.colors = Random():integer(0, 8)
+           -- cell.oxygen = Random():integer()
         end,
 
         execute = function(cell)
             populateVessels(cell)
-            
+
+            insertOxygenLevel(cell)
+            OxygenTransitions(cell)
      end
     }
     model.cs = CellularSpace{
@@ -43,8 +89,8 @@ init = function(model)
     model.map = Map{
         target = model.cs,
         select = "state",
-        value = {"vessels","oxygen"},
-        color = {"red","blue"}
+        value = {"vessels","oxygen","o2","o3","o4"},
+        color = {"red","blue","yellow","green","purple"}
     }
 
     model.timer = Timer{
@@ -53,7 +99,7 @@ init = function(model)
     }
 end
 hybridMultiscale = Model {
-    finalTime = 100,
+    finalTime = 1000,
     dim = 50, -- size of grid
     bloodVessels = 49, -- number of blood vessels
     oxygenBacteria = nil, -- Oxygen consumption rate of bacteria
