@@ -12,52 +12,93 @@ function countNeighbors(cell, val)
 	return count
 end
 
+function machophRule(cell)
+    forEachNeighbor(cell, function(neigh)
+        if cell.state == "macrophagesOff" and neigh.state == "Tcell" then
+            cell.state = "macrophagesON"
+        elseif cell.state == "macrophagesON" and (neigh.state == "bacteriaS" or neigh.state == "bacteriaF") then
+            neigh.state = "empty"
+        elseif cell.state == "macrophagesOff" and (neigh.state == "bacteriaS" or neigh.state == "bacteriaF") then
+            neigh.state = "bacteriaF"
+            --todo explosao dos macrofagos
+            --todo antibiotico
+        end
+
+    end)
+end
+
+function populateBacteria(cell)
+    local v = countNeighbors(cell, "bacteria")
+            if v > 2  then
+                cell.state = "empty"   
+            end
+end
+
 function populateVessels(cell)
     local v = countNeighbors(cell, "vessels")
             if v > 1  then
-                cell.state = "oxygen"   
+                cell.state = "empty"   
             end
-
-
-  --[[  forEachNeighbor(cell, function(neigh)
-    local v = countNeighbors(cell, neigh.oxygen)
-            if v  >= 1    then
+    forEachNeighbor(cell, function(neigh)
+            if cell.state == "vessels" or cell.oxygen == 1 then
                 cell.oxygen = 100  
             end
+            if cell.state ~= "vessels" and cell.oxygen == 100 then
+                cell.oxygen = 0
+            end  
     end)
-    ]]--
 end
 
 function insertOxygenLevel(cell)
+
     forEachNeighbor(cell, function(neighbour)
-            if cell.state == "vessels" and neighbour.state == "oxygen" then
-                neighbour.state = "o2"
+
+        for i=100,10,-10 do
+            if cell.oxygen == i  and neighbour.oxygen == 0 then
+                neighbour.oxygen = i-10
             end
-            if cell.state == "o2" and neighbour.state == "oxygen" then
-                neighbour.state = "o3"
-            end
-            if cell.state == "o3" and neighbour.state == "oxygen" then
-                neighbour.state = "o4"
-            end     
+        end
     end)
-    --[[forEachNeighbor(cell, function(neighbour)
-        if cell.oxygen == 100 and neighbour.state == 0 then
-            neighbour.oxygen = 10
-        elseif cell.state == 10 and neighbour.state == 0 then
-            neighbour.oxygen = 20
-        elseif cell.state == 20 and neighbour.state == 0 then
-            neighbour.state = 30
-        end     
-    end)]]--
 end
 
-function OxygenTransitions(cell)
-    if cell.state == "o2" then 
-        cell.state = "o4"
-    elseif cell.state == "o3" then 
-        cell.state = "o4"
-    elseif cell.state == "o4" then 
-        cell.state = "oxygen"
+function bacteriaUpdate(cell)
+    if cell.state == "bacteriaS" and cell.oxygen > 50 then
+        cell.state = "bacteriaF"
+    elseif cell.state == "bacteriaF" and cell.oxygen < 50 then
+        cell.state = "bacteriaS"
+    end
+end
+
+function oxygenUpdate(cell)
+    if cell.state == "bacteriaS" or cell.state == "bacteriaF" then
+        cell.oxygen = cell.oxygen-1
+    end
+
+    forEachNeighbor(cell, function(neighbour)
+
+        for i=90,10,-10 do
+            if cell.oxygen == i  and neighbour.oxygen == 0 then
+                neighbour.oxygen = i-1
+            end
+        end
+    end)
+end
+
+function TcellUpdate(cell,model)
+    local count = 0
+    forEachCell(model.cs, function(cell)
+        if cell.state == "bacteriaF" or cell.state == "bacteriaF" then
+            count = count + 1
+        end
+    end)
+    if count >= model.tenter then
+        if cell.state == "empty" then
+            cell.state = Random{"empty", "Tcell"}:sample()
+        end
+    end
+    local v = countNeighbors(cell, "Tcell")
+    if v > 1 and cell.state == "Tcell" then
+        cell.state = "empty"   
     end
 end
 
@@ -66,19 +107,22 @@ init = function(model)
     local count = 0
     model.cell = Cell{
         init = function(cell)
-
-         cell.state = Random{"oxygen", "vessels"}:sample()
-          --cell.colors = Random():integer(0, 8)
-           -- cell.oxygen = Random():integer()
+         cell.state = Random{"empty", "vessels","macrophagesOff","bacteriaF","bacteriaS"}:sample()
+         cell.oxygen = Random():integer()
         end,
 
         execute = function(cell)
             populateVessels(cell)
-
             insertOxygenLevel(cell)
-            OxygenTransitions(cell)
+            machophRule(cell)
+            populateBacteria(cell)
+            bacteriaUpdate(cell)
+            oxygenUpdate(cell)
+            TcellUpdate(cell,model)
      end
     }
+
+   
     model.cs = CellularSpace{
         xdim = model.dim,
         instance = model.cell,
@@ -89,13 +133,31 @@ init = function(model)
     model.map = Map{
         target = model.cs,
         select = "state",
-        value = {"vessels","oxygen","o2","o3","o4"},
-        color = {"red","blue","yellow","green","purple"}
+        value = {"vessels","macrophagesON","bacteriaF","bacteriaS","Tcell","macrophagesOff"},
+        color = {"red","purple","green","darkGreen","blue","darkGray"}
     }
+    --YlGnBu
+    model.map2 = Map{
+        target = model.cs,
+        select = "oxygen",
+        color  = "YlGnBu",
+        min = 0,
+        max = 100,
+        slices = 10
+    }
+
+   --[[ model.chart = Chart{
+        target = model.cs,
+        select = {"oxygen"},
+        title ="Oxygen x Time",
+        yLabel = "#individual",
+        color = {"blue"}
+    }]]--
 
     model.timer = Timer{
         Event{action = model.cs},
-        Event{action = model.map}
+        Event{action = model.map},
+        Event{action = model.map2}
     }
 end
 hybridMultiscale = Model {
@@ -138,3 +200,5 @@ hybridMultiscale = Model {
 }
 
 hybridMultiscale:run()
+
+
