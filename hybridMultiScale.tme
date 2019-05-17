@@ -1,8 +1,8 @@
 return {
 	[1] = {
-		x = 0, 
-		y = 22, 
-		width = 1920, 
-		height = 1018, 
+		x = 534, 
+		y = 160, 
+		width = 600, 
+		height = 500, 
 	}, 
 }
