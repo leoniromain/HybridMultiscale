@@ -27,18 +27,18 @@ function machophRule(cell)
     end)
 end
 
-function populateBacteria(cell)
-    local v = countNeighbors(cell, "bacteria")
-            if v > 2  then
-                cell.state = "empty"   
-            end
+local totBacS = 0
+function populateBacteria(cell,model)
+    c = model.cs:sample()
+    if c.state == "empty" and totBacS <= model.bloodVessels then
+        c.state = "bacteriaS"
+        totBacS = totBacS + 1
+    end
 end
 
-function populateVessels(cell)
-    local v = countNeighbors(cell, "vessels")
-            if v > 1  then
-                cell.state = "empty"   
-            end
+local totVessels = 0
+function populateVessels(cell,model)
+   --[[ 
     forEachNeighbor(cell, function(neigh)
             if cell.state == "vessels" or cell.oxygen == 1 then
                 cell.oxygen = 100  
@@ -47,6 +47,13 @@ function populateVessels(cell)
                 cell.oxygen = 0
             end  
     end)
+    ]]--
+
+    c = model.cs:sample()
+    if c.state == "empty" and totVessels <= model.bloodVessels then
+        c.state = "vessels"
+        totVessels = totVessels + 1
+    end
 end
 
 function insertOxygenLevel(cell)
@@ -94,6 +101,7 @@ function TcellUpdate(cell,model)
     if count >= model.tenter then
         if cell.state == "empty" then
             cell.state = Random{"empty", "Tcell"}:sample()
+            count = 0
         end
     end
     local v = countNeighbors(cell, "Tcell")
@@ -104,8 +112,9 @@ end
 
 function moveCells(cell)
     forEachNeighbor(cell, function(neighbour)
-        if neighbour.state == "empty" and cell.state ~= "empty" then
-            neighbour.state = cell.state
+        if neighbour.state == "empty"  and cell.state ~= "vessels" then
+           -- neighbour.state = cell.state
+            --cell.state = "empty"
         end
     end)
 
@@ -115,19 +124,26 @@ init = function(model)
     local count = 0
     model.cell = Cell{
         init = function(cell)
-         cell.state = Random{"empty", "vessels","macrophagesOff","bacteriaF","bacteriaS"}:sample()
+         --cell.state = Random{"empty", "vessels","macrophagesOff","bacteriaF","bacteriaS"}:sample()
+         cell.state = "empty"
          cell.oxygen = Random():integer()
+         cell:synchronize()
         end,
 
         execute = function(cell)
-            populateVessels(cell)
+            local OT = true
+            if OT == true then
+            populateVessels(cell,model)
+            populateBacteria(cell,model)
             insertOxygenLevel(cell)
+            OT = false
+            end
             machophRule(cell)
-            populateBacteria(cell)
             bacteriaUpdate(cell)
             oxygenUpdate(cell)
             TcellUpdate(cell,model)
             moveCells(cell)
+            
      end
     }
 
