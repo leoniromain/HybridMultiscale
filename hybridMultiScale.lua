@@ -102,6 +102,14 @@ function TcellUpdate(cell,model)
     end
 end
 
+function moveCells(cell)
+    forEachNeighbor(cell, function(neighbour)
+        if neighbour.state == "empty" and cell.state ~= "empty" then
+            neighbour.state = cell.state
+        end
+    end)
+
+end
 init = function(model)
     local firstrun = true
     local count = 0
@@ -119,6 +127,7 @@ init = function(model)
             bacteriaUpdate(cell)
             oxygenUpdate(cell)
             TcellUpdate(cell,model)
+            moveCells(cell)
      end
     }
 
