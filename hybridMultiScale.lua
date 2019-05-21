@@ -12,142 +12,183 @@ function countNeighbors(cell, val)
 	return count
 end
 
-function machophRule(cell)
-    forEachNeighbor(cell, function(neigh)
+init = function(model)
+    local OT = true
+    local firstrun = true
+    local count = 0
+    local s = true
+    local totMach = 0
+    local totVessels = 0
+    local totBacS = 0
+    local totBacF = 0
+    local macTime = 0
+    local auxT = 0
+    local countBacF = 0
+    local countBacS = 0
+    startRule = function(cell)
+        random = Random()
+        c = model.cs:sample()
+        if c.state == "empty" and totVessels < model.bloodVessels then
+            c.state = "vessels"
+            c.oxygen = 100
+            totVessels = totVessels + 1
+        elseif c.state == "empty" and totBacS < 6 then
+            c.state = "bacteriaS"
+            totBacS = totBacS + 1
+        elseif c.state == "empty" and totBacF < 6 then
+            c.state = "bacteriaF"
+            totBacF = totBacF + 1
+        elseif c.state == "empty" and totMach < model.mrInit then
+            c.state = "macrophagesOff"
+            c.life = random:integer(0, 100)
+            totMach = totMach + 1
+        end
+    end
+
+    machophRule = function(cell)
+        forEachNeighbor(cell, function(neigh)
         if cell.state == "macrophagesOff" and neigh.state == "Tcell" then
             cell.state = "macrophagesON"
-        elseif cell.state == "macrophagesON" and (neigh.state == "bacteriaS" or neigh.state == "bacteriaF") then
+        elseif (cell.state == "macrophagesON" and neigh.state == "bacteriaS") or (cell.state == "macrophagesON" and neigh.state == "bacteriaF") then
             neigh.state = "empty"
-        elseif cell.state == "macrophagesOff" and (neigh.state == "bacteriaS" or neigh.state == "bacteriaF") then
+        elseif (cell.state == "macrophagesOff" and neigh.state == "bacteriaS") or (cell.state == "macrophagesOff" and neigh.state == "bacteriaF") then
             neigh.state = "bacteriaF"
+       -- elseif macTime == 3 and cell.state == "macrophagesON" and neigh.state == "empty" then
+          --  neigh.state = "bacteriaS"
             --todo explosao dos macrofagos
             --todo antibiotico
         end
-
-    end)
-end
-
-local totBacS = 0
-function populateBacteria(cell,model)
-    c = model.cs:sample()
-    if c.state == "empty" and totBacS <= model.bloodVessels then
-        c.state = "bacteriaS"
-        totBacS = totBacS + 1
+       -- macTime = macTime + 1
+     end)
     end
-end
 
-local totVessels = 0
-function populateVessels(cell,model)
-   --[[ 
-    forEachNeighbor(cell, function(neigh)
-            if cell.state == "vessels" or cell.oxygen == 1 then
-                cell.oxygen = 100  
+    TcellUpdate= function(cell)  
+        random = Random()
+        if  (cell.oxygen > 0 and cell.state == "Tcell")  then
+            cell.oxygen = cell.oxygen-3
+        end
+
+        auxT = 0
+        forEachCell(model.cs, function(cell)
+            if cell.state == "bacteriaS" or cell.state == "bacteriaF" then
+                auxT = auxT + 1
+            end           
+        end)
+        --todo
+        forEachNeighbor(cell, function(neigh)
+            if auxT >= model.tenter then
+                if cell.state == "vessels" and neigh.state == "empty" then
+                    neigh.state = Random{"empty","empty","empty","Tcell"}:sample()
+                    if neigh.state == "Tcell" then
+                        neigh.life = random:integer(0, 3)
+                    --auxT = 0
+                    end
+                end            
+            end           
+        end)
+    end
+
+     bacteriaUpdate = function(cell)
+        
+        forEachNeighbor(cell, function(neigh)
+
+            if neigh.state == "empty" and countBacF >= 50 and cell.state == "bacteriaF" then
+                neigh.state = cell.state
+                countBacF = 0
+            elseif  neigh == "empty" and countBacS >= 100 and cell.state == "bacteriaS" then
+                neigh.state = cell.state
+                countBacS = 0
             end
-            if cell.state ~= "vessels" and cell.oxygen == 100 then
-                cell.oxygen = 0
-            end  
-    end)
+
+            if cell.state == "bacteriaS" and cell.oxygen >= model.oHigh then
+                cell.state = "bacteriaF"
+            elseif cell.state == "bacteriaF" and cell.oxygen <= model.oLow then
+                cell.state = "bacteriaS"
+            end
+
+            if  (cell.oxygen > 0 and cell.state == "bacteriaS") or (cell.oxygen > 0 and cell.state == "bacteriaF")  then
+                cell.oxygen = cell.oxygen-3  
+            end
+            if (cell.oxygen == 0 and cell.state == "bacteriaF") or (cell.oxygen == 0 and cell.state == "bacteriaS") then
+                cell.state = "empty"
+            end
+           
+            
+    
+            
+            countBacF = countBacF + 1
+            countBacS = countBacS + 1
+        end)
+    end
+
+    
+    insertOxygenLevel = function(cell)
+        forEachNeighbor(cell,function(neigh)
+            for i=100,10,-10 do
+                if cell.oxygen == i  and neigh.oxygen == 0 then
+                    neigh.oxygen = i-10
+                end
+            end
+        end)
+    end
+
+    moveCells = function(cell)
+        random = Random()
+        value = random:integer(0, 100)
+        -- so macrofagos e tcell que anda
+        forEachNeighbor(cell, function(neigh)
+            if neigh.state == "empty" and cell.state ~= "vessels" and value > 77 and cell.past.state ~= "empty" then
+                neigh.state = cell.state
+                cell.state = "empty"
+               --neighbour.state = cell.state
+                --cell.state = "empty"
+            end
+        end)
+    end
+
+    updateLife = function(cell)
+        if cell.life ~= nil then
+            cell.life = cell.life -1
+            if cell.life <= 0 then
+                print("rfdfdfd")
+                cell.state = "empty"
+            end
+        end
+
+
+    end
+ --[[   function oxygenUpdate(cell)
+        forEachNeighbor(cell,function(neigh)
+            for i=90,10,-10 do
+                if cell.oxygen == i  and neigh.oxygen == 0 then
+                    neigh.oxygen = i-1
+                end
+            end
+        end)
+    end
     ]]--
-
-    c = model.cs:sample()
-    if c.state == "empty" and totVessels <= model.bloodVessels then
-        c.state = "vessels"
-        totVessels = totVessels + 1
-    end
-end
-
-function insertOxygenLevel(cell)
-
-    forEachNeighbor(cell, function(neighbour)
-
-        for i=100,10,-10 do
-            if cell.oxygen == i  and neighbour.oxygen == 0 then
-                neighbour.oxygen = i-10
-            end
-        end
-    end)
-end
-
-function bacteriaUpdate(cell)
-    if cell.state == "bacteriaS" and cell.oxygen > 50 then
-        cell.state = "bacteriaF"
-    elseif cell.state == "bacteriaF" and cell.oxygen < 50 then
-        cell.state = "bacteriaS"
-    end
-end
-
-function oxygenUpdate(cell)
-    if cell.state == "bacteriaS" or cell.state == "bacteriaF" then
-        cell.oxygen = cell.oxygen-1
-    end
-
-    forEachNeighbor(cell, function(neighbour)
-
-        for i=90,10,-10 do
-            if cell.oxygen == i  and neighbour.oxygen == 0 then
-                neighbour.oxygen = i-1
-            end
-        end
-    end)
-end
-
-function TcellUpdate(cell,model)
-    local count = 0
-    forEachCell(model.cs, function(cell)
-        if cell.state == "bacteriaF" or cell.state == "bacteriaF" then
-            count = count + 1
-        end
-    end)
-    if count >= model.tenter then
-        if cell.state == "empty" then
-            cell.state = Random{"empty", "Tcell"}:sample()
-            count = 0
-        end
-    end
-    local v = countNeighbors(cell, "Tcell")
-    if v > 1 and cell.state == "Tcell" then
-        cell.state = "empty"   
-    end
-end
-
-function moveCells(cell)
-    forEachNeighbor(cell, function(neighbour)
-        if neighbour.state == "empty"  and cell.state ~= "vessels" then
-           -- neighbour.state = cell.state
-            --cell.state = "empty"
-        end
-    end)
-
-end
-init = function(model)
-    local firstrun = true
-    local count = 0
     model.cell = Cell{
         init = function(cell)
          --cell.state = Random{"empty", "vessels","macrophagesOff","bacteriaF","bacteriaS"}:sample()
          cell.state = "empty"
-         cell.oxygen = Random():integer()
-         cell:synchronize()
+         cell.oxygen = 0 --Random():integer()
+        --cell:synchronize()
         end,
-
         execute = function(cell)
-            local OT = true
-            if OT == true then
-            populateVessels(cell,model)
-            populateBacteria(cell,model)
+        startRule(cell)
             insertOxygenLevel(cell)
-            OT = false
-            end
             machophRule(cell)
-            bacteriaUpdate(cell)
-            oxygenUpdate(cell)
-            TcellUpdate(cell,model)
+            bacteriaUpdate(cell,model)
+            --oxygenUpdate(cell,neigh)
+            TcellUpdate(cell)
             moveCells(cell)
-            
-     end
+            updateLife(cell)
+            end
+
+
     }
 
-   
+
     model.cs = CellularSpace{
         xdim = model.dim,
         instance = model.cell,
@@ -159,10 +200,10 @@ init = function(model)
         target = model.cs,
         select = "state",
         value = {"vessels","macrophagesON","bacteriaF","bacteriaS","Tcell","macrophagesOff"},
-        color = {"red","purple","green","darkGreen","blue","darkGray"}
+        color = {"red","purple","darkGreen","green","blue","darkGray"}
     }
     --YlGnBu
-    model.map2 = Map{
+   model.map2 = Map{
         target = model.cs,
         select = "oxygen",
         color  = "YlGnBu",
@@ -186,10 +227,17 @@ init = function(model)
     }
 end
 hybridMultiscale = Model {
-    finalTime = 1000,
+    finalTime = 5000,
     dim = 50, -- size of grid
     bloodVessels = 49, -- number of blood vessels
-    oxygenBacteria = nil, -- Oxygen consumption rate of bacteria
+    oLow = 5, -- O 2 threshold for fast → slow-growing bacteria
+    oHigh = 65, -- O 2 threshold for slow → fast-growing bacteria
+    mrInit = 105, -- Initial number of Mr in the domain
+    tenter = 50, -- Bacteria needed for T cells to enter the system
+    repF = Choice{min = 15, max = 32}, -- Replication rate of fast-growing bacteria
+    repS = Choice{min = 48, max = 96}, -- Replication rate of slow-growing bacteria
+    tLife = Choice{min = 0, max = 3},--Lifespan of T cells
+   --[[ oxygenBacteria = nil, -- Oxygen consumption rate of bacteria
     oxygenMr = nil, -- Oxygen consumption rate of Mr
     oxygenMa = nil, -- Oxygen consumption rate of Ma
     oxygenMi = nil, -- Oxygen consumption rate of Mi
@@ -199,9 +247,8 @@ hybridMultiscale = Model {
     drugMacrophages = nil, -- Antibiotic consumption rate of infected macrophages
     repF = Choice{min = 15, max = 32}, -- Replication rate of fast-growing bacteria
     repS = Choice{min = 48, max = 96}, -- Replication rate of slow-growing bacteria
-    oLow = 6, -- O 2 threshold for fast → slow-growing bacteria
-    oHigh = 65, -- O 2 threshold for slow → fast-growing bacteria
-    mrInit = 105, -- Initial number of Mr in the domain
+
+
     mrMa = 9, -- Probability of Mr → Ma (multiplied by no. of T cells in neighbourhood)
     nIci = 10, --Number of bacteria needed for Mi → Mci
     nCib = 20, -- Number of bacteria needed for Mci to burst
@@ -211,15 +258,16 @@ hybridMultiscale = Model {
     tmoveMa = 7.8, --Time interval for Ma movement 7.8 ( Segovia-Juarez et al., 2004 )
     tMoveMi = 24, --Time interval for Mi/Mci movement
     mrRecr = 0.07, -- Probability of Mr recruitment
-    tenter = 50, -- Bacteria needed for T cells to enter the system
+    
     tRecr = 0.02, -- Probability of T cell recruitment
-    tLife = Choice{min = 0, max = 3},--Lifespan of T cells
+    
     tKill = 0.75, --Probability of T cell killing Mi/Mci
     tMoveT = 10, --Time interval for T cell movement
     tDrug = Choice{min = 168, max = 2160},--Time at which drug is administered
     drugKillF = 2, -- Drug needed to kill fast-growing bacteria
     drugkillS = 10, -- Drug needed to kill slow-growing bacteria
     drugKillMi = 20, --Drug needed to kill intracellular bacteria
+    --]]
     init = init
 
 }
