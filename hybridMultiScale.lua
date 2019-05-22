@@ -26,13 +26,16 @@ init = function(model)
     local countBacF = 0
     local countBacS = 0
     local TcellLifeTime = 0
+    local antLifeTime = 0
     local oxyTime = 0
+   --- local antTime = 0
     startRule = function(cell)
         random = Random()
        local  c = model.cs:sample()
         if c.state == "empty" and totVessels < model.bloodVessels then
             c.state = "vessels"
             c.oxygen = 100
+            c.antTime = 0
             totVessels = totVessels + 1    
         elseif c.state == "empty" and totBacS < model.bacSInit then
             c.state = "bacteriaS"
@@ -95,7 +98,7 @@ init = function(model)
             cell.oxygen = cell.oxygen - model.oxygenTcells
         end
 
-        if  (cell.oxygen == 0 and cell.state == "Tcell")  then
+        if  (cell.oxygen <= 0 and cell.state == "Tcell")  then
             cell.state = "empty"
         end
         
@@ -194,7 +197,6 @@ init = function(model)
     end
 
     oxygenUpdate = function(cell)
-        --if oxyTime == 20 then
             forEachNeighbor(cell,function(neigh)
                 for i=90,10,-10 do
                     if cell.oxygen == i  and neigh.oxygen <= i  and neigh.oxygen < (cell.oxygen-10) then
@@ -202,9 +204,6 @@ init = function(model)
                     end
                 end
             end)
-    --    oxyTime = 0
-      --  end
-      --  oxyTime = oxyTime + 1
     end 
 
     moveCells = function(cell)
@@ -229,6 +228,44 @@ init = function(model)
 
     end
     
+    antibioticRule = function(cell)
+        random = Random()
+        forEachNeighbor(cell, function(neigh)
+            if (cell.state == "antibiotic" and neigh.state == "bacteriaS") or (cell.state == "antibiotic" and neigh.state == "bacteriaF") then
+                neigh.state = "empty"
+            end
+        end)
+            if cell.state == "vessels" then
+                cell.antTime = cell.antTime + 1
+                if cell.antTime >= model.tDrug then 
+                    n = cell:sample():getNeighborhood()
+                    z = n:sample()
+                    if z.state == "empty"  then
+                        z.state = "antibiotic"
+                        cell.antTime = cell.antTime - 5
+                    end
+
+                    if z.state == "antibiotic" then
+                        z.life = random:integer(0, 10)
+                    end
+                end
+            end
+
+            if cell.state == "antibiotic" and cell.oxygen > 0 then
+                cell.oxygen = cell.oxygen - model.oxygenAnt
+            end
+
+            if cell.oxygen <= 0 and cell.state == "antibiotic" then
+                cell.state = "empty"
+            end
+            
+            if cell.life ~= nil then
+                if cell.state == "antibiotic" and antLifeTime > cell.life then
+                    cell.state = "empty"
+                end
+            end
+            antLifeTime = antLifeTime + 1
+    end
 
     model.cell = Cell{
         init = function(cell)
@@ -247,6 +284,7 @@ init = function(model)
             TcellUpdate(cell)
             moveCells(cell)
             updateLife(cell)
+            antibioticRule(cell)
             end
 
 
@@ -263,8 +301,8 @@ init = function(model)
     model.map = Map{
         target = model.cs,
         select = "state",
-        value = {"vessels","macrophagesON","macrophagesOff","macrophagesMi","macrophagesMC","bacteriaF","bacteriaS","Tcell"},
-        color = {"red","purple","magenta","lightGray","darkGray","darkGreen","green","blue"}
+        value = {"vessels","macrophagesON","macrophagesOff","macrophagesMi","macrophagesMC","bacteriaF","bacteriaS","Tcell","antibiotic"},
+        color = {"red","purple","magenta","lightGray","darkGray","darkGreen","green","blue","orange"}
     }
     --YlGnBu
    model.map2 = Map{
@@ -276,13 +314,14 @@ init = function(model)
         slices = 10
     }
 
-   --[[ model.chart = Chart{
+   model.chart = Chart{
         target = model.cs,
-        select = {"oxygen"},
-        title ="Oxygen x Time",
-        yLabel = "#individual",
-        color = {"blue"}
-    }]]--
+        select = "state",
+        value = {"bacteriaF","bacteriaS","antibiotic","Tcell"},
+        title ="Bacteria X antibiotic",
+       -- yLabel = "#individual",
+        color = {"darkGreen","green","orange","blue"}
+    }
 
     model.timer = Timer{
         Event{action = model.cs},
@@ -294,43 +333,25 @@ hybridMultiscale = Model {
     finalTime = 5000,
     dim = 40, -- size of grid
     bloodVessels = 49, -- number of blood vessels
-    oLow = 5, -- O 2 threshold for fast → slow-growing bacteria
+    oLow = 10, -- O 2 threshold for fast → slow-growing bacteria
     oHigh = 65, -- O 2 threshold for slow → fast-growing bacteria
     mrInit = 105, -- Initial number of Mr in the domain
     tenter = 50, -- Bacteria needed for T cells to enter the system
-    repF = Choice{min = 15, max = 32}, -- Replication rate of fast-growing bacteria
-    repS = Choice{min = 48, max = 96}, -- Replication rate of slow-growing bacteria
-    tLife = Choice{min = 0, max = 3},--Lifespan of T cells
     nIci = 10, --Number of bacteria needed for Mi → Mci
     nCib = 20, -- Number of bacteria needed for Mci to burst
-    oxygenOff = 2, -- Oxygen consumption rate of Mr
-    oxygenOn = 3, -- Oxygen consumption rate of Ma
-    oxygenMi = 4, -- Oxygen consumption rate of Mi
-    oxygenMci = 5, -- Oxygen consumption rate of Mci
-    oxygenBacteria = 3, -- Oxygen consumption rate of bacteria
+    oxygenOff = 3, -- Oxygen consumption rate of Mr
+    oxygenOn = 4, -- Oxygen consumption rate of Ma
+    oxygenMi = 5, -- Oxygen consumption rate of Mi
+    oxygenMci = 6, -- Oxygen consumption rate of Mci
+    oxygenBacteria = 4, -- Oxygen consumption rate of bacteria
     oxygenTcells = 1, -- Oxygen consumption rate of T cells
+    oxygenAnt = 4,
     tKill = 0.75, --Probability of T cell killing Mi/Mci
     bacSInit = 6, -- Initial number of slow growing bacteria in the domain
     bacFInit = 6, -- Initial number of slow growing bacteria in the domain
     mOffRecr = 0.07, -- Probability of MOff recruitment
     tRecr = 0.02, -- Probability of T cell recruitment
-    --[[ 
-    drugBacteria = nil, -- Antibiotic consumption rate of extracellular bacteria
-    drugMacrophages = nil, -- Antibiotic consumption rate of infected macrophages
-    mrMa = 9, -- Probability of Mr → Ma (multiplied by no. of T cells in neighbourhood)
-    mLife = Choice{min = 0, max = 100}, --Lifespan of Mr, Mi and Mci
-    maLife = 10, --Lifespan of Ma
-    tMoveMr = 20, --Time interval for Mr movement
-    tmoveMa = 7.8, --Time interval for Ma movement 7.8 ( Segovia-Juarez et al., 2004 )
-    tMoveMi = 24, --Time interval for Mi/Mci movement
-    
-    
-    tMoveT = 10, --Time interval for T cell movement
-    tDrug = Choice{min = 168, max = 2160},--Time at which drug is administered
-    drugKillF = 2, -- Drug needed to kill fast-growing bacteria
-    drugkillS = 10, -- Drug needed to kill slow-growing bacteria
-    drugKillMi = 20, --Drug needed to kill intracellular bacteria
-    --]]
+    tDrug = 20, --Time at which drug is administered
     init = init
 
 }
