@@ -46,19 +46,27 @@ init = function(model)
     end
 
     machophRule = function(cell)
+        random = Random()
         forEachNeighbor(cell, function(neigh)
+
+        if cell.macTime ~= nil then
+            cell.macTime = cell.macTime +1
+        end
+
         if cell.state == "macrophagesOff" and neigh.state == "Tcell" then
             cell.state = "macrophagesON"
         elseif (cell.state == "macrophagesON" and neigh.state == "bacteriaS") or (cell.state == "macrophagesON" and neigh.state == "bacteriaF") then
             neigh.state = "empty"
         elseif (cell.state == "macrophagesOff" and neigh.state == "bacteriaS") or (cell.state == "macrophagesOff" and neigh.state == "bacteriaF") then
-            neigh.state = "bacteriaF"
-       -- elseif macTime == 3 and cell.state == "macrophagesON" and neigh.state == "empty" then
-          --  neigh.state = "bacteriaS"
-            --todo explosao dos macrofagos
-            --todo antibiotico
+            cell.state = "macrophagesMi"
+            cell.macTime = 0
+        elseif cell.state ==  "macrophagesMi" and cell.macTime == model.nIci then
+            cell.state = "macrophagesMC"
+        elseif cell.state == "macrophagesMC" and cell.macTime == model.nCib then
+            cell.state = Random{"bacteriaS","bacteriaF"}:sample()
+            cell.macTime = 0
         end
-       -- macTime = macTime + 1
+        
      end)
     end
 
@@ -112,10 +120,7 @@ init = function(model)
             if (cell.oxygen == 0 and cell.state == "bacteriaF") or (cell.oxygen == 0 and cell.state == "bacteriaS") then
                 cell.state = "empty"
             end
-           
-            
-    
-            
+
             countBacF = countBacF + 1
             countBacS = countBacS + 1
         end)
@@ -135,9 +140,10 @@ init = function(model)
     moveCells = function(cell)
         random = Random()
         value = random:integer(0, 100)
+        value2 = random:integer(0, 10)
         -- so macrofagos e tcell que anda
         forEachNeighbor(cell, function(neigh)
-            if neigh.state == "empty" and cell.state ~= "vessels" and value > 77 and cell.past.state ~= "empty" then
+            if neigh.state == "empty" and cell.state ~= "vessels" and value > 77 and value2 > 8 then
                 neigh.state = cell.state
                 cell.state = "empty"
                --neighbour.state = cell.state
@@ -150,7 +156,6 @@ init = function(model)
         if cell.life ~= nil then
             cell.life = cell.life -1
             if cell.life <= 0 then
-                print("rfdfdfd")
                 cell.state = "empty"
             end
         end
@@ -199,8 +204,8 @@ init = function(model)
     model.map = Map{
         target = model.cs,
         select = "state",
-        value = {"vessels","macrophagesON","bacteriaF","bacteriaS","Tcell","macrophagesOff"},
-        color = {"red","purple","darkGreen","green","blue","darkGray"}
+        value = {"vessels","macrophagesON","macrophagesOff","macrophagesMi","macrophagesMC","bacteriaF","bacteriaS","Tcell"},
+        color = {"red","purple","magenta","lightGray","darkGray","darkGreen","green","blue"}
     }
     --YlGnBu
    model.map2 = Map{
@@ -228,7 +233,7 @@ init = function(model)
 end
 hybridMultiscale = Model {
     finalTime = 5000,
-    dim = 50, -- size of grid
+    dim = 30, -- size of grid
     bloodVessels = 49, -- number of blood vessels
     oLow = 5, -- O 2 threshold for fast → slow-growing bacteria
     oHigh = 65, -- O 2 threshold for slow → fast-growing bacteria
@@ -237,6 +242,8 @@ hybridMultiscale = Model {
     repF = Choice{min = 15, max = 32}, -- Replication rate of fast-growing bacteria
     repS = Choice{min = 48, max = 96}, -- Replication rate of slow-growing bacteria
     tLife = Choice{min = 0, max = 3},--Lifespan of T cells
+    nIci = 10, --Number of bacteria needed for Mi → Mci
+    nCib = 20, -- Number of bacteria needed for Mci to burst
    --[[ oxygenBacteria = nil, -- Oxygen consumption rate of bacteria
     oxygenMr = nil, -- Oxygen consumption rate of Mr
     oxygenMa = nil, -- Oxygen consumption rate of Ma
@@ -250,8 +257,7 @@ hybridMultiscale = Model {
 
 
     mrMa = 9, -- Probability of Mr → Ma (multiplied by no. of T cells in neighbourhood)
-    nIci = 10, --Number of bacteria needed for Mi → Mci
-    nCib = 20, -- Number of bacteria needed for Mci to burst
+
     mLife = Choice{min = 0, max = 100}, --Lifespan of Mr, Mi and Mci
     maLife = 10, --Lifespan of Ma
     tMoveMr = 20, --Time interval for Mr movement
