@@ -71,7 +71,7 @@ init = function(model)
 
     TcellUpdate= function(cell)
         if  (cell.oxygen > 0 and cell.state == "Tcell")  then
-            cell.oxygen = cell.oxygen-3
+            cell.oxygen = cell.oxygen-5
         end
 
         if  (cell.oxygen == 0 and cell.state == "Tcell")  then
@@ -103,19 +103,27 @@ init = function(model)
                 end            
             end
             
-          --  if cell.state == "Tcell"
+            if cell.state == "Tcell" then
+                random = Random()
+                local value = random:number()
+                if value > 0.75 then
+                    if neigh.state == "macrophagesMi" or neigh.state == "macrophagesMC" or neigh.state == "bacteriaS" or neigh.state == "bacteriaF" then
+                        neigh.state = "empty"
+                    end
+                end
+            end
         end)
     end
 
      bacteriaUpdate = function(cell)
-        
-        forEachNeighbor(cell, function(neigh)
+        n = cell:sample():getNeighborhood()
+        z = n:sample()
 
-            if neigh.state == "empty" and countBacF >= 50 and cell.state == "bacteriaF" then
-                neigh.state = cell.state
+            if z.state == "empty" and countBacF >= 50 and cell.state == "bacteriaF" then
+                z.state = cell.state
                 countBacF = 0
-            elseif  neigh == "empty" and countBacS >= 100 and cell.state == "bacteriaS" then
-                neigh.state = cell.state
+            elseif  z.state == "empty" and countBacS >= 100 and cell.state == "bacteriaS" then
+                z.state = cell.state
                 countBacS = 0
             end
 
@@ -125,7 +133,7 @@ init = function(model)
                 cell.state = "bacteriaS"
             end
                 if  (cell.oxygen > 0 and cell.state == "bacteriaS") or (cell.oxygen > 0 and cell.state == "bacteriaF")  then
-                    cell.oxygen = cell.oxygen - 3  
+                    cell.oxygen = cell.oxygen - 5  
                 end
             if (cell.oxygen == 0 and cell.state == "bacteriaF") or (cell.oxygen == 0 and cell.state == "bacteriaS") then
                 cell.state = "empty"
@@ -133,7 +141,6 @@ init = function(model)
 
             countBacF = countBacF + 1
             countBacS = countBacS + 1
-        end)
     end
 
     
@@ -168,16 +175,17 @@ init = function(model)
 
 
     end
- --[[   function oxygenUpdate(cell)
+    
+    oxygenUpdate = function(cell)
         forEachNeighbor(cell,function(neigh)
             for i=90,10,-10 do
                 if cell.oxygen == i  and neigh.oxygen == 0 then
-                    neigh.oxygen = i-1
+                    neigh.oxygen = i+5
                 end
             end
         end)
     end
-    ]]--
+
     model.cell = Cell{
         init = function(cell)
          
@@ -191,7 +199,7 @@ init = function(model)
             insertOxygenLevel(cell)
             machophRule(cell)
             bacteriaUpdate(cell,model)
-            --oxygenUpdate(cell,neigh)
+            oxygenUpdate(cell)
             TcellUpdate(cell)
             moveCells(cell)
             updateLife(cell)
