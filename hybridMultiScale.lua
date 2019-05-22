@@ -26,17 +26,18 @@ init = function(model)
     local countBacF = 0
     local countBacS = 0
     local TcellLifeTime = 0
+    local oxyTime = 0
     startRule = function(cell)
         random = Random()
        local  c = model.cs:sample()
         if c.state == "empty" and totVessels < model.bloodVessels then
             c.state = "vessels"
             c.oxygen = 100
-            totVessels = totVessels + 1
-        elseif c.state == "empty" and totBacS < 6 then
+            totVessels = totVessels + 1    
+        elseif c.state == "empty" and totBacS < model.bacSInit then
             c.state = "bacteriaS"
             totBacS = totBacS + 1
-        elseif c.state == "empty" and totBacF < 6 then
+        elseif c.state == "empty" and totBacF < model.bacFInit then
             c.state = "bacteriaF"
             totBacF = totBacF + 1
         elseif c.state == "empty" and totMach < model.mrInit then
@@ -48,13 +49,23 @@ init = function(model)
 
     machophRule = function(cell)
         random = Random()
+
+        
+        local value = random:number()
+        if cell.state == "vessels"  and value <= model.mOffRecr then
+            n = cell:sample():getNeighborhood()
+            z = n:sample()
+            if z.state == "empty"  then
+                z.state = "macrophagesOff"
+            end
+        end    
         forEachNeighbor(cell, function(neigh) 
         if (cell.macTime ~= nil and cell.state == "macrophagesMi") or (cell.macTime ~= nil and cell.state == "macrophagesMC")   then
             cell.macTime = cell.macTime + 1
         end
-
         if cell.state == "macrophagesOff" and neigh.state == "Tcell" then
             cell.state = "macrophagesON"
+            --todo probabilidade
         elseif (cell.state == "macrophagesON" and neigh.state == "bacteriaS") or (cell.state == "macrophagesON" and neigh.state == "bacteriaF") then
             neigh.state = "empty"
         elseif (cell.state == "macrophagesOff" and neigh.state == "bacteriaS") or (cell.state == "macrophagesOff" and neigh.state == "bacteriaF") then
@@ -66,11 +77,14 @@ init = function(model)
             cell.macTime = 0
         end
         
-        if  (cell.oxygen > 0 and cell.state == "macrophagesOff") or
-             (cell.oxygen > 0 and cell.state == "macrophagesON") or 
-             (cell.oxygen > 0 and cell.state == "macrophagesMi") or 
-             (cell.oxygen > 0 and cell.state == "macrophagesMC")  then
-            cell.oxygen = cell.oxygen - 5  
+        if  (cell.oxygen > 0 and cell.state == "macrophagesOff") then
+            cell.oxygen = cell.oxygen - model.oxygenOff  
+        elseif (cell.oxygen > 0 and cell.state == "macrophagesON") then
+            cell.oxygen = cell.oxygen - model.oxygenOn  
+        elseif (cell.oxygen > 0 and cell.state == "macrophagesMi") then
+            cell.oxygen = cell.oxygen - model.oxygenMi  
+        elseif (cell.oxygen > 0 and cell.state == "macrophagesMC")  then
+            cell.oxygen = cell.oxygen - model.oxygenMci  
         end
 
      end)
@@ -78,7 +92,7 @@ init = function(model)
 
     TcellUpdate= function(cell)
         if  (cell.oxygen > 0 and cell.state == "Tcell")  then
-            cell.oxygen = cell.oxygen-5
+            cell.oxygen = cell.oxygen - model.oxygenTcells
         end
 
         if  (cell.oxygen == 0 and cell.state == "Tcell")  then
@@ -86,16 +100,19 @@ init = function(model)
         end
         
         auxT = 0
+        --conta o numero de bacterias atuais do modelo
         forEachCell(model.cs, function(cell)
             if cell.state == "bacteriaS" or cell.state == "bacteriaF" then
                 auxT = auxT + 1
             end           
         end)
+        
         forEachNeighbor(cell, function(neigh)
             if cell.state == "Tcell" then
                 random = Random()
                 local value = random:number()
-                if value > 0.75 then
+                if value < 0.75 then
+                    --mata as bacterias com 75% de probabilidade
                     if neigh.state == "macrophagesMi" or neigh.state == "macrophagesMC"  then
                         neigh.state = "empty"
                     end
@@ -104,6 +121,8 @@ init = function(model)
         end)
 
         if auxT >= model.tenter then
+            random = Random()
+           -- local value = random:number()
             if cell.state == "vessels" then
                 n = cell:sample():getNeighborhood()
                 z = n:sample()
@@ -123,28 +142,40 @@ init = function(model)
     end
 
     bacteriaUpdate = function(cell)
+       
         n = cell:sample():getNeighborhood()
         z = n:sample()
         random = Random()
+        
+
+        random = Random()
+        
         local valueF = random:integer(15, 32)
         local valueS = random:integer(48, 96)
-            if z.state == "empty" and countBacF >= valueF and cell.state == "bacteriaF" then
-                z.state = cell.state
-                countBacF = 0
-            elseif  z.state == "empty" and countBacS >= valueS and cell.state == "bacteriaS" then
-                z.state = cell.state
-                countBacS = 0
-            end
+        
+        
+                if z.state == "empty" and countBacF >= valueF and  cell.state == "bacteriaF" then
+                    z.state = cell.state
+                    countBacF = 0
+                end
+        
+                if  z.state == "empty" and countBacS >= valueS and cell.state == "bacteriaS" then
+                    z.state = cell.state
+                    countBacS = 0
+                end
+            
 
             if cell.state == "bacteriaS" and cell.oxygen >= model.oHigh then
                 cell.state = "bacteriaF"
             elseif cell.state == "bacteriaF" and cell.oxygen <= model.oLow then
                 cell.state = "bacteriaS"
             end
-                if  (cell.oxygen > 0 and cell.state == "bacteriaS") or (cell.oxygen > 0 and cell.state == "bacteriaF")  then
-                    cell.oxygen = cell.oxygen - 5  
-                end
-            if (cell.oxygen == 0 and cell.state == "bacteriaF") or (cell.oxygen == 0 and cell.state == "bacteriaS") then
+
+            if  (cell.state == "bacteriaS") or (cell.state == "bacteriaF")  then
+                cell.oxygen = cell.oxygen - model.oxygenBacteria  
+            end
+
+            if (cell.oxygen <= 0 and cell.state == "bacteriaF") or (cell.oxygen <= 0 and cell.state == "bacteriaS") then
                 cell.state = "empty"
             end
 
@@ -162,8 +193,22 @@ init = function(model)
         end)
     end
 
+    oxygenUpdate = function(cell)
+        --if oxyTime == 20 then
+            forEachNeighbor(cell,function(neigh)
+                for i=90,10,-10 do
+                    if cell.oxygen == i  and neigh.oxygen <= i  and neigh.oxygen < (cell.oxygen-10) then
+                        neigh.oxygen = neigh.oxygen + 1
+                    end
+                end
+            end)
+    --    oxyTime = 0
+      --  end
+      --  oxyTime = oxyTime + 1
+    end 
+
     moveCells = function(cell)
-        if cell.state ~= "vessels" then
+        if cell.state ~= "vessels" and cell.state ~= "bacteriaF" and cell.state ~= "bacteriaS" then
             n = cell:sample():getNeighborhood()
             z = n:sample()
             if z.state == "empty" and  z.oxygen > 0  then
@@ -184,15 +229,6 @@ init = function(model)
 
     end
     
-    oxygenUpdate = function(cell)
-        forEachNeighbor(cell,function(neigh)
-            for i=100,10,-10 do
-                if cell.oxygen == i  and neigh.oxygen == 0 then
-                    neigh.oxygen = i-10
-                end
-            end
-        end)
-    end
 
     model.cell = Cell{
         init = function(cell)
@@ -267,30 +303,28 @@ hybridMultiscale = Model {
     tLife = Choice{min = 0, max = 3},--Lifespan of T cells
     nIci = 10, --Number of bacteria needed for Mi → Mci
     nCib = 20, -- Number of bacteria needed for Mci to burst
-   --[[ oxygenBacteria = nil, -- Oxygen consumption rate of bacteria
-    oxygenMr = nil, -- Oxygen consumption rate of Mr
-    oxygenMa = nil, -- Oxygen consumption rate of Ma
-    oxygenMi = nil, -- Oxygen consumption rate of Mi
-    oxygenMci = nil, -- Oxygen consumption rate of Mci
-    oxygenTcells = nil, -- Oxygen consumption rate of T cells
+    oxygenOff = 2, -- Oxygen consumption rate of Mr
+    oxygenOn = 3, -- Oxygen consumption rate of Ma
+    oxygenMi = 4, -- Oxygen consumption rate of Mi
+    oxygenMci = 5, -- Oxygen consumption rate of Mci
+    oxygenBacteria = 3, -- Oxygen consumption rate of bacteria
+    oxygenTcells = 1, -- Oxygen consumption rate of T cells
+    tKill = 0.75, --Probability of T cell killing Mi/Mci
+    bacSInit = 6, -- Initial number of slow growing bacteria in the domain
+    bacFInit = 6, -- Initial number of slow growing bacteria in the domain
+    mOffRecr = 0.07, -- Probability of MOff recruitment
+    tRecr = 0.02, -- Probability of T cell recruitment
+    --[[ 
     drugBacteria = nil, -- Antibiotic consumption rate of extracellular bacteria
     drugMacrophages = nil, -- Antibiotic consumption rate of infected macrophages
-    repF = Choice{min = 15, max = 32}, -- Replication rate of fast-growing bacteria
-    repS = Choice{min = 48, max = 96}, -- Replication rate of slow-growing bacteria
-
-
     mrMa = 9, -- Probability of Mr → Ma (multiplied by no. of T cells in neighbourhood)
-
     mLife = Choice{min = 0, max = 100}, --Lifespan of Mr, Mi and Mci
     maLife = 10, --Lifespan of Ma
     tMoveMr = 20, --Time interval for Mr movement
     tmoveMa = 7.8, --Time interval for Ma movement 7.8 ( Segovia-Juarez et al., 2004 )
     tMoveMi = 24, --Time interval for Mi/Mci movement
-    mrRecr = 0.07, -- Probability of Mr recruitment
     
-    tRecr = 0.02, -- Probability of T cell recruitment
     
-    tKill = 0.75, --Probability of T cell killing Mi/Mci
     tMoveT = 10, --Time interval for T cell movement
     tDrug = Choice{min = 168, max = 2160},--Time at which drug is administered
     drugKillF = 2, -- Drug needed to kill fast-growing bacteria
@@ -300,7 +334,7 @@ hybridMultiscale = Model {
     init = init
 
 }
-
-hybridMultiscale:run()
+hybridMultiscale:configure()
+--hybridMultiscale:run()
 
 
