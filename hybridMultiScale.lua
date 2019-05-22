@@ -25,7 +25,7 @@ init = function(model)
     local auxT = 0
     local countBacF = 0
     local countBacS = 0
-    local totTcells = 0
+    local TcellLifeTime = 0
     startRule = function(cell)
         random = Random()
        local  c = model.cs:sample()
@@ -66,6 +66,13 @@ init = function(model)
             cell.macTime = 0
         end
         
+        if  (cell.oxygen > 0 and cell.state == "macrophagesOff") or
+             (cell.oxygen > 0 and cell.state == "macrophagesON") or 
+             (cell.oxygen > 0 and cell.state == "macrophagesMi") or 
+             (cell.oxygen > 0 and cell.state == "macrophagesMC")  then
+            cell.oxygen = cell.oxygen - 5  
+        end
+
      end)
     end
 
@@ -85,37 +92,37 @@ init = function(model)
             end           
         end)
         forEachNeighbor(cell, function(neigh)
-            if auxT >= model.tenter then
-                if cell.state == "vessels" then
-                    n = cell:sample():getNeighborhood()
-                    z = n:sample()
-                    if z.state == "empty" and totTcells <=3 then
-                        neigh.state = "Tcell"
-                        totTcells = totTcells + 1
-                    end
-
-                    if totTcells > 3 then
-                        totTcells = 0
-                    end
-                    if neigh.state == "Tcell" then
-                        neigh.life = random:integer(0, 3)
-                    end
-                end            
-            end
-            
             if cell.state == "Tcell" then
                 random = Random()
                 local value = random:number()
                 if value > 0.75 then
-                    if neigh.state == "macrophagesMi" or neigh.state == "macrophagesMC" or neigh.state == "bacteriaS" or neigh.state == "bacteriaF" then
+                    if neigh.state == "macrophagesMi" or neigh.state == "macrophagesMC"  then
                         neigh.state = "empty"
                     end
                 end
             end
         end)
+
+        if auxT >= model.tenter then
+            if cell.state == "vessels" then
+                n = cell:sample():getNeighborhood()
+                z = n:sample()
+                if z.state == "empty"  then
+                    z.state = "Tcell"
+                end
+                if z.state == "Tcell" then
+                    z.life = random:integer(0, 3)
+                end
+
+                if cell.state == "Tcell" and TcellLifeTime > cell.life then
+                    cell.state = "empty"
+                end
+            end            
+        end
+        TcellLifeTime = TcellLifeTime + 1
     end
 
-     bacteriaUpdate = function(cell)
+    bacteriaUpdate = function(cell)
         n = cell:sample():getNeighborhood()
         z = n:sample()
         random = Random()
@@ -145,7 +152,6 @@ init = function(model)
             countBacS = countBacS + 1
     end
 
-    
     insertOxygenLevel = function(cell)
         forEachNeighbor(cell,function(neigh)
             for i=100,10,-10 do
@@ -160,7 +166,7 @@ init = function(model)
         if cell.state ~= "vessels" then
             n = cell:sample():getNeighborhood()
             z = n:sample()
-            if z.state == "empty" then
+            if z.state == "empty" and  z.oxygen > 0  then
                 z.state = cell.state
                 cell.state = "empty"
             end
@@ -180,9 +186,9 @@ init = function(model)
     
     oxygenUpdate = function(cell)
         forEachNeighbor(cell,function(neigh)
-            for i=90,10,-10 do
+            for i=100,10,-10 do
                 if cell.oxygen == i  and neigh.oxygen == 0 then
-                    neigh.oxygen = i+5
+                    neigh.oxygen = i-10
                 end
             end
         end)
