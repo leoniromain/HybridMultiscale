@@ -25,9 +25,10 @@ init = function(model)
     local auxT = 0
     local countBacF = 0
     local countBacS = 0
+    local totTcells = 0
     startRule = function(cell)
         random = Random()
-        c = model.cs:sample()
+       local  c = model.cs:sample()
         if c.state == "empty" and totVessels < model.bloodVessels then
             c.state = "vessels"
             c.oxygen = 100
@@ -47,10 +48,9 @@ init = function(model)
 
     machophRule = function(cell)
         random = Random()
-        forEachNeighbor(cell, function(neigh)
-
-        if cell.macTime ~= nil then
-            cell.macTime = cell.macTime +1
+        forEachNeighbor(cell, function(neigh) 
+        if (cell.macTime ~= nil and cell.state == "macrophagesMi") or (cell.macTime ~= nil and cell.state == "macrophagesMC")   then
+            cell.macTime = cell.macTime + 1
         end
 
         if cell.state == "macrophagesOff" and neigh.state == "Tcell" then
@@ -59,7 +59,6 @@ init = function(model)
             neigh.state = "empty"
         elseif (cell.state == "macrophagesOff" and neigh.state == "bacteriaS") or (cell.state == "macrophagesOff" and neigh.state == "bacteriaF") then
             cell.state = "macrophagesMi"
-            cell.macTime = 0
         elseif cell.state ==  "macrophagesMi" and cell.macTime == model.nIci then
             cell.state = "macrophagesMC"
         elseif cell.state == "macrophagesMC" and cell.macTime == model.nCib then
@@ -70,29 +69,41 @@ init = function(model)
      end)
     end
 
-    TcellUpdate= function(cell)  
-        random = Random()
+    TcellUpdate= function(cell)
         if  (cell.oxygen > 0 and cell.state == "Tcell")  then
             cell.oxygen = cell.oxygen-3
         end
 
+        if  (cell.oxygen == 0 and cell.state == "Tcell")  then
+            cell.state = "empty"
+        end
+        
         auxT = 0
         forEachCell(model.cs, function(cell)
             if cell.state == "bacteriaS" or cell.state == "bacteriaF" then
                 auxT = auxT + 1
             end           
         end)
-        --todo
         forEachNeighbor(cell, function(neigh)
             if auxT >= model.tenter then
-                if cell.state == "vessels" and neigh.state == "empty" then
-                    neigh.state = Random{"empty","empty","empty","Tcell"}:sample()
+                if cell.state == "vessels" then
+                    n = cell:sample():getNeighborhood()
+                    z = n:sample()
+                    if z.state == "empty" and totTcells <=3 then
+                        neigh.state = "Tcell"
+                        totTcells = totTcells + 1
+                    end
+
+                    if totTcells > 3 then
+                        totTcells = 0
+                    end
                     if neigh.state == "Tcell" then
                         neigh.life = random:integer(0, 3)
-                    --auxT = 0
                     end
                 end            
-            end           
+            end
+            
+          --  if cell.state == "Tcell"
         end)
     end
 
@@ -113,10 +124,9 @@ init = function(model)
             elseif cell.state == "bacteriaF" and cell.oxygen <= model.oLow then
                 cell.state = "bacteriaS"
             end
-
-            if  (cell.oxygen > 0 and cell.state == "bacteriaS") or (cell.oxygen > 0 and cell.state == "bacteriaF")  then
-                cell.oxygen = cell.oxygen-3  
-            end
+                if  (cell.oxygen > 0 and cell.state == "bacteriaS") or (cell.oxygen > 0 and cell.state == "bacteriaF")  then
+                    cell.oxygen = cell.oxygen - 3  
+                end
             if (cell.oxygen == 0 and cell.state == "bacteriaF") or (cell.oxygen == 0 and cell.state == "bacteriaS") then
                 cell.state = "empty"
             end
@@ -138,18 +148,14 @@ init = function(model)
     end
 
     moveCells = function(cell)
-        random = Random()
-        value = random:integer(0, 100)
-        value2 = random:integer(0, 10)
-        -- so macrofagos e tcell que anda
-        forEachNeighbor(cell, function(neigh)
-            if neigh.state == "empty" and cell.state ~= "vessels" and value > 77 and value2 > 8 then
-                neigh.state = cell.state
+        if cell.state ~= "vessels" then
+            n = cell:sample():getNeighborhood()
+            z = n:sample()
+            if z.state == "empty" then
+                z.state = cell.state
                 cell.state = "empty"
-               --neighbour.state = cell.state
-                --cell.state = "empty"
             end
-        end)
+        end
     end
 
     updateLife = function(cell)
@@ -174,9 +180,10 @@ init = function(model)
     ]]--
     model.cell = Cell{
         init = function(cell)
-         --cell.state = Random{"empty", "vessels","macrophagesOff","bacteriaF","bacteriaS"}:sample()
+         
          cell.state = "empty"
-         cell.oxygen = 0 --Random():integer()
+         cell.oxygen = 0 
+         cell.macTime = 0
         --cell:synchronize()
         end,
         execute = function(cell)
@@ -233,7 +240,7 @@ init = function(model)
 end
 hybridMultiscale = Model {
     finalTime = 5000,
-    dim = 30, -- size of grid
+    dim = 40, -- size of grid
     bloodVessels = 49, -- number of blood vessels
     oLow = 5, -- O 2 threshold for fast → slow-growing bacteria
     oHigh = 65, -- O 2 threshold for slow → fast-growing bacteria
