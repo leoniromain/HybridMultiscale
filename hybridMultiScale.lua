@@ -118,11 +118,13 @@ init = function(model)
      bacteriaUpdate = function(cell)
         n = cell:sample():getNeighborhood()
         z = n:sample()
-
-            if z.state == "empty" and countBacF >= 50 and cell.state == "bacteriaF" then
+        random = Random()
+        local valueF = random:integer(15, 32)
+        local valueS = random:integer(48, 96)
+            if z.state == "empty" and countBacF >= valueF and cell.state == "bacteriaF" then
                 z.state = cell.state
                 countBacF = 0
-            elseif  z.state == "empty" and countBacS >= 100 and cell.state == "bacteriaS" then
+            elseif  z.state == "empty" and countBacS >= valueS and cell.state == "bacteriaS" then
                 z.state = cell.state
                 countBacS = 0
             end
