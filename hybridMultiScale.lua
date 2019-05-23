@@ -28,7 +28,6 @@ init = function(model)
     local TcellLifeTime = 0
     local antLifeTime = 0
     local oxyTime = 0
-   --- local antTime = 0
     startRule = function(cell)
         random = Random()
        local  c = model.cs:sample()
@@ -52,8 +51,6 @@ init = function(model)
 
     machophRule = function(cell)
         random = Random()
-
-        
         local value = random:number()
         if cell.state == "vessels"  and value <= model.mOffRecr then
             n = cell:sample():getNeighborhood()
@@ -68,7 +65,6 @@ init = function(model)
         end
         if cell.state == "macrophagesOff" and neigh.state == "Tcell" then
             cell.state = "macrophagesON"
-            --todo probabilidade
         elseif (cell.state == "macrophagesON" and neigh.state == "bacteriaS") or (cell.state == "macrophagesON" and neigh.state == "bacteriaF") then
             neigh.state = "empty"
         elseif (cell.state == "macrophagesOff" and neigh.state == "bacteriaS") or (cell.state == "macrophagesOff" and neigh.state == "bacteriaF") then
@@ -101,9 +97,7 @@ init = function(model)
         if  (cell.oxygen <= 0 and cell.state == "Tcell")  then
             cell.state = "empty"
         end
-        
         auxT = 0
-        --conta o numero de bacterias atuais do modelo
         forEachCell(model.cs, function(cell)
             if cell.state == "bacteriaS" or cell.state == "bacteriaF" then
                 auxT = auxT + 1
@@ -115,7 +109,6 @@ init = function(model)
                 random = Random()
                 local value = random:number()
                 if value < 0.75 then
-                    --mata as bacterias com 75% de probabilidade
                     if neigh.state == "macrophagesMi" or neigh.state == "macrophagesMC"  then
                         neigh.state = "empty"
                     end
@@ -125,7 +118,6 @@ init = function(model)
 
         if auxT >= model.tenter then
             random = Random()
-           -- local value = random:number()
             if cell.state == "vessels" then
                 n = cell:sample():getNeighborhood()
                 z = n:sample()
@@ -149,13 +141,9 @@ init = function(model)
         n = cell:sample():getNeighborhood()
         z = n:sample()
         random = Random()
-        
 
-        random = Random()
-        
         local valueF = random:integer(15, 32)
         local valueS = random:integer(48, 96)
-        
         
                 if z.state == "empty" and countBacF >= valueF and  cell.state == "bacteriaF" then
                     z.state = cell.state
@@ -167,7 +155,6 @@ init = function(model)
                     countBacS = 0
                 end
             
-
             if cell.state == "bacteriaS" and cell.oxygen >= model.oHigh then
                 cell.state = "bacteriaF"
             elseif cell.state == "bacteriaF" and cell.oxygen <= model.oLow then
@@ -197,13 +184,13 @@ init = function(model)
     end
 
     oxygenUpdate = function(cell)
-            forEachNeighbor(cell,function(neigh)
-                for i=90,10,-10 do
-                    if cell.oxygen == i  and neigh.oxygen <= i  and neigh.oxygen < (cell.oxygen-10) then
-                        neigh.oxygen = neigh.oxygen + 1
-                    end
+        forEachNeighbor(cell,function(neigh)
+            for i=90,10,-10 do
+                if cell.oxygen == i  and neigh.oxygen <= i  and neigh.oxygen < (cell.oxygen-10) then
+                    neigh.oxygen = neigh.oxygen + 1
                 end
-            end)
+            end
+        end)
     end 
 
     moveCells = function(cell)
@@ -224,8 +211,6 @@ init = function(model)
                 cell.state = "empty"
             end
         end
-
-
     end
     
     antibioticRule = function(cell)
@@ -270,14 +255,12 @@ init = function(model)
 
     model.cell = Cell{
         init = function(cell)
-         
-         cell.state = "empty"
-         cell.oxygen = 0 
-         cell.macTime = 0
-        --cell:synchronize()
+            cell.state = "empty"
+            cell.oxygen = 0 
+            cell.macTime = 0
         end,
         execute = function(cell)
-        startRule(cell)
+            startRule(cell)
             insertOxygenLevel(cell)
             machophRule(cell)
             bacteriaUpdate(cell,model)
@@ -286,11 +269,8 @@ init = function(model)
             moveCells(cell)
             updateLife(cell)
             antibioticRule(cell)
-            end
-
-
+        end
     }
-
 
     model.cs = CellularSpace{
         xdim = model.dim,
@@ -320,7 +300,6 @@ init = function(model)
         select = "state",
         value = {"bacteriaF","bacteriaS","antibiotic","Tcell"},
         title ="Bacteria X antibiotic",
-       -- yLabel = "#individual",
         color = {"darkGreen","green","orange","blue"}
     }
 
@@ -347,7 +326,7 @@ hybridMultiscale = Model {
     oxygenMci = 6, -- Oxygen consumption rate of Mci
     oxygenBacteria = 4, -- Oxygen consumption rate of bacteria
     oxygenTcells = 1, -- Oxygen consumption rate of T cells
-    oxygenAnt = 4,
+    oxygenAnt = 4, -- Oxygen consumption rate of Antibiotic
     tKill = 0.75, --Probability of T cell killing Mi/Mci
     bacSInit = 6, -- Initial number of slow growing bacteria in the domain
     bacFInit = 6, -- Initial number of slow growing bacteria in the domain
@@ -358,8 +337,3 @@ hybridMultiscale = Model {
 }
 hybridMultiscale:configure()
 --hybridMultiscale:run()
-h = hybridMultiscale{}
-h.map:save("cas2_map1.png")
-h.map2:save("case2_map2.png")
-h.chart:save("case2_chart.png")
-
