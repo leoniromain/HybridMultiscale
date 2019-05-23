@@ -242,11 +242,11 @@ init = function(model)
                     z = n:sample()
                     if z.state == "empty"  then
                         z.state = "antibiotic"
-                        cell.antTime = cell.antTime - 5
+                       cell.antTime = 0
                     end
 
                     if z.state == "antibiotic" then
-                        z.life = random:integer(0, 10)
+                        z.life = random:integer(0, 3)
                     end
                 end
             end
@@ -262,6 +262,7 @@ init = function(model)
             if cell.life ~= nil then
                 if cell.state == "antibiotic" and antLifeTime > cell.life then
                     cell.state = "empty"
+                    antLifeTime = 0
                 end
             end
             antLifeTime = antLifeTime + 1
@@ -326,7 +327,8 @@ init = function(model)
     model.timer = Timer{
         Event{action = model.cs},
         Event{action = model.map},
-        Event{action = model.map2}
+        Event{action = model.map2},
+        Event{action = model.chart}
     }
 end
 hybridMultiscale = Model {
@@ -350,12 +352,14 @@ hybridMultiscale = Model {
     bacSInit = 6, -- Initial number of slow growing bacteria in the domain
     bacFInit = 6, -- Initial number of slow growing bacteria in the domain
     mOffRecr = 0.07, -- Probability of MOff recruitment
-    tRecr = 0.02, -- Probability of T cell recruitment
     tDrug = 20, --Time at which drug is administered
     init = init
 
 }
 hybridMultiscale:configure()
 --hybridMultiscale:run()
-
+h = hybridMultiscale{}
+h.map:save("cas2_map1.png")
+h.map2:save("case2_map2.png")
+h.chart:save("case2_chart.png")
 
