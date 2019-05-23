@@ -331,7 +331,7 @@ hybridMultiscale = Model {
     bacSInit = 6, -- Initial number of slow growing bacteria in the domain
     bacFInit = 6, -- Initial number of slow growing bacteria in the domain
     mOffRecr = 0.07, -- Probability of MOff recruitment
-    tDrug = 20, --Time at which drug is administered
+    tDrug = 2160, --Time at which drug is administered
     init = init
 
 }
